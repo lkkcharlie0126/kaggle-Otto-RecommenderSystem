@@ -1,2 +1,5 @@
-orginizer/
-__pycache__/
+code/orginizer/
+code/__pycache__/
+input/
+output/
+submissions/
