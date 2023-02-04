@@ -5,7 +5,7 @@ import math
 from pathlib import Path
 from collections import Counter
 import itertools
-from eventsSuggesterNew import ClicksSuggester, BuysSuggester, CartsSuggester
+from eventsSuggester import ClicksSuggester, BuysSuggester, CartsSuggester
 import gensim
 
 inputPath = '../input/newSplited/'
