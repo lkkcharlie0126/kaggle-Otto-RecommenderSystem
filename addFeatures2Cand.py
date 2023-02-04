@@ -5,8 +5,6 @@ from collections import Counter
 import itertools
 from pathlib import Path
 from operator import itemgetter
-import gensim
-from annoy import AnnoyIndex
 tqdm.pandas()
 
 
@@ -15,7 +13,6 @@ class AddFeatures2Cand():
     inputPath = '../input/newSplited/'
     outputPath = '../output/newSplited/'
     type_labels = {'clicks':0, 'carts':1, 'orders':2}
-    # input_note = 'covisit_20_20_20_newSuggester2'
     output_note = ''
     topNinHistory = 30
     timeWeights = list(np.logspace(1, 0.1, topNinHistory, base=2, endpoint=True) - 1)
@@ -133,79 +130,6 @@ class ADD_covWgt(AddFeatures2Cand):
         candidate = candidate.merge(df, on=['session', 'aid'], how='left')
         candidate.to_parquet(self.candidates_output_path + f'{predType}_{s}.pqt')
 
-
-class ADD_covWgt_cnt(AddFeatures2Cand):
-
-    covisitTypes = ['clicks', 'click2click', 'cartsOrders', 'buy2buy', 'click2cart', 'click2order', 'buy2buy_q']
-    topN = {'clicks': 20, 'click2click': 20, 'cartsOrders': 20, 'buy2buy': 20, 'click2cart': 20, 'click2order': 20, 'buy2buy_q': 20}
-    diskPart = {'clicks': 8, 'click2click': 8, 'cartsOrders': 8, 'buy2buy': 2, 'click2cart': 8, 'click2order': 8, 'buy2buy_q': 2}
-    VER = 6
-    covisitMat = {}
-    covisitNote = 'top20_20_20'
-    output_note = 'covWgtCnt'
-
-    def featureProcess(self, SET):
-        self.val_A = self.load_ValA(SET)
-        self.val_A = self.val_A.sort_values(['session', 'ts'], ascending=[True, False]).reset_index(drop=True)
-        self.val_A = self.val_A.drop_duplicates((['session', 'aid'])).reset_index(drop=True)
-
-        self.val_A['n'] = self.val_A.groupby('session').aid.cumcount()
-        self.val_A = self.val_A.loc[self.val_A.n < 10].drop('n',axis=1)
-
-        if self.isTimeWgt:
-            self.val_A['ts'] = 1 + 3*(self.val_A.ts - self.val_A.ts.min())/(self.val_A.ts.max()-self.val_A.ts.min())
-
-        self.coVisitSaveFolder = self.outputPath + f'coVisit/set{SET}/{self.covisitNote}/'
-        self.readCovisitMat()
-
-    def readCovisitMat(self):
-        for covisitType in self.covisitTypes:
-            for k in range(0, self.diskPart[covisitType]):
-                if k == 0:
-                    self.covisitMat[covisitType] = pd.read_parquet(self.coVisitSaveFolder + f'top_{self.topN[covisitType]}_{covisitType}_v{self.VER}_{k}.pqt')
-                else:
-                    self.covisitMat[covisitType] = pd.concat([self.covisitMat[covisitType], pd.read_parquet(self.coVisitSaveFolder + f'top_{self.topN[covisitType]}_{covisitType}_v{self.VER}_{k}.pqt')], axis=0)
-
-            self.covisitMat[covisitType].wgt = 1
-
-    def merge(self, predType, s):
-        candidate = pd.read_parquet(self.candidates_input_path + f'{predType}_{s}.pqt')
-        candidate['session'] = candidate.session.astype('int32')
-        df = self.val_A.merge(candidate[['session', 'aid']],on='session')
-
-        if predType == 'clicks':
-            toMergeTypes = ['clicks', 'click2click']
-            clicksCol = ['wgt_cnt_click2click']
-            cartsOrdersCol = []
-        elif predType == 'carts':
-            toMergeTypes = ['cartsOrders', 'buy2buy', 'click2cart']
-            cartsOrdersCol = ['wgt_cnt_buy2buy']
-            clicksCol = ['wgt_cnt_click2cart']
-        elif predType == 'orders':
-            toMergeTypes = ['cartsOrders', 'buy2buy', 'click2order']
-            cartsOrdersCol = ['wgt_cnt_buy2buy']
-            clicksCol = ['wgt_cnt_click2order']
-
-        for toMergeType in toMergeTypes:
-            print('merge', toMergeType)
-            df = df.merge(self.covisitMat[toMergeType], on=['aid_x', 'aid_y'], how='left').fillna(0)
-
-        newCols = list(map(lambda x: 'wgt_cnt_' + x, toMergeTypes))
-
-
-        df.columns = ['session', 'aid_x', 'ts', 'type', 'aid_y'] + newCols
-        for col in clicksCol:
-            df.loc[df.type.isin([1, 2]), col] = 0
-        for col in cartsOrdersCol:
-            df.loc[df.type == 0, col] = 0
-        if self.isTimeWgt:
-            for col in newCols:
-                df[col] = df[col] * df['ts']
-
-        df = df.groupby(['session', 'aid_y']).agg({col: 'sum' for col in newCols}).reset_index()
-        df.rename(columns = {'aid_y': 'aid'}, inplace = True)
-        candidate = candidate.merge(df, on=['session', 'aid'], how='left')
-        candidate.to_parquet(self.candidates_output_path + f'{predType}_{s}.pqt')
 
 
 class ADD_covScore_lastN(AddFeatures2Cand):
