@@ -1,8 +1,5 @@
 import pandas as pd, numpy as np
-from tqdm.notebook import tqdm
-import gc
 import xgboost as xgb
-import gensim
 import time
 
 inputPath = '../input/newSplited/'
@@ -44,9 +41,6 @@ for predictType in predictTypes:
 
         data4xgb_path = outputPath + f'data4xgb/set{SET}_top_{TOPN_candidate}/{input_note}'
         data4xgb = pd.read_parquet(f'{data4xgb_path}/{predictType}_{s}.pqt')
-
-        # data4xgb_path = outputPath + f'data4xgb_set{SET}_top_{TOPN_candidate}_{note_data4xgb}/'
-        # data4xgb = pd.read_parquet(data4xgb_path + f'data4xgb_{predictType}{sub}.pqt')
         print(data4xgb.shape)
         # data4xgb = data4xgb.merge(aid2vec_df, on=['aid'], how='left')
         # Normalize orderofRule

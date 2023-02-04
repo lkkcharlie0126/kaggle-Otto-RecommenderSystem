@@ -1,6 +1,4 @@
 import pandas as pd, numpy as np
-from tqdm.notebook import tqdm
-import gc
 import xgboost as xgb
 import time
 
